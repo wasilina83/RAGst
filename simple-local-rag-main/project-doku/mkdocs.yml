@@ -1,0 +1,35 @@
+site_name: Retrieval-Augmented Generation (RAG) for Car Repair 4.0 (WA 4.0)
+
+theme:
+  name: material  # Optional, but Material theme is clean and customizable
+  palette:
+    primary: 'indigo'
+    accent: 'deep-purple'
+  font:
+    text: "Open Sans"
+    code: "Roboto Mono"
+  logo: 'images/logo.png'  # Your custom logo if you have one
+  favicon: 'images/favicon.ico'  # Add your favicon if needed
+
+extra_css:
+  - css/custom.css
+
+extra_javascript:
+  - js/custom.js
+
+nav:
+  - Home: index.md
+  - Introduction: introduction.md
+  - RAG in AW4.0:
+      - What is RAG?: rag_aw40.md
+      - Definition and Basics: what-is-rag.md
+      - RAG Pipeline: rag-pipeline.md
+      - Components: components.md
+      - Architecture: architecture.md
+      - Data Integration: data-integration.md
+  - Implementation:
+      - Building a RAG Model: building-rag.md
+      - Code Examples: code-examples.md
+  - Deploying RAG:
+      - Real-time in Workshops: real-time.md
+      - Deployment Guide: deployment.md

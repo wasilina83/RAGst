@@ -1,0 +1,80 @@
+/* Background image */
+body {
+   # background-image: url('../images/background.png'); /* Ensure your image is in the docs/images folder */
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+/* White text */
+.md-content, .md-typeset {
+    color: #1E0096;
+}
+
+/* Navigation bar color */
+/* Extended header styling */
+.md-header {
+    background-image: url('../images/background.png');
+    background-color: #1E0096 !important;
+    height: 250px; /* Initial extended height */
+    transition: height 0.3s ease; /* Smooth shrinking effect */
+    background-size: cover; /* Cover the entire header */
+    background-position: center;
+    position: fixed; /* Fix the header at the top */
+    width: 100%;
+    z-index: 1000; /* Ensure the header stays on top */
+}
+
+/* Shrinking header on scroll */
+body.scrolled .md-header {
+    height: 80px; /* Smaller height on scroll */
+}
+
+/* Optional: Adjust content position to accommodate fixed header */
+.md-content {
+    padding-top: 250px; /* Ensure the content doesn't overlap the extended header */
+    transition: padding-top 0.3s ease; /* Adjust padding when header shrinks */
+}
+
+body.scrolled .md-content {
+    padding-top: 80px; /* Adjust padding when the header shrinks */
+}
+
+
+/* Open Sans font for body text */
+body, .md-typeset {
+    font-family: 'Open Sans', sans-serif;
+}
+
+/* Set color for links */
+a {
+    color: #1E0096; /* Gold for better visibility */
+}
+
+/* Code blocks and inline code */
+.md-typeset code {
+    background-color: #333;
+    color: #FFD700; /* or another color for code */
+}
+
+/* Adjust the header title */
+.md-header-nav__title {
+    color: white;
+}
+.md-nav--secondary {
+	background-color: transparent;
+}
+.md-nav--secondary .md-nav__title[for="__toc"] {
+	scroll-snap-align: start;
+	background-color: transparent;
+}
+.md-nav--primary .md-nav__title[for="__drawer"] {
+	scroll-snap-align: start;
+	background-color: transparent;
+}
+.md-header__button.md-logo img, .md-header__button.md-logo svg {
+	fill: currentcolor;
+	display: block;
+	height: 2.0rem;
+	width: auto;
+}
