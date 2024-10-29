@@ -12,3 +12,6 @@ bitsandbytes
 jupyter
 wheel
 # flash-attn
+mkdocs
+mkdocs-material
+flask
