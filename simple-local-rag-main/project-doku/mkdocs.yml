@@ -33,3 +33,5 @@ nav:
   - Deploying RAG:
       - Real-time in Workshops: real-time.md
       - Deployment Guide: deployment.md
+  - Our RAGs:
+      - First RAG: RAG-1d0.md 
