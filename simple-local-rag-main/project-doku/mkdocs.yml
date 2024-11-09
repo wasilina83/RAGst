@@ -34,4 +34,5 @@ nav:
       - Real-time in Workshops: real-time.md
       - Deployment Guide: deployment.md
   - Our RAGs:
-      - First RAG: RAG-1d0.md 
+      - Simple RAG: RAG-1d0.md 
+      - Multi-Query-Retriever: RAG-2d2_mitMulti-Query-Retriever.md 

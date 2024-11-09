@@ -4,20 +4,14 @@ import os
 import torch
 from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from scripts.rag_pipeline_20 import process_pdf_and_generate_embeddings
-from scripts.rag_body_102 import (
-    embeddings_to_tensor,
-    query_topk,
-    output_result,
-    get_gpu_memory,
-    suggest_llm_based_on_gpu,
-    check_and_load_llm_model
-)
+from scripts.rag_pipeline_20 import *
+from scripts.rag_body_102 import *
+
 
 # Flask App Setup
 app = Flask(__name__)
 CORS(app)  # Aktiviert Cross-Origin-Anfragen
-
+CORS(app, resources={r"/*": {"origins": "http://localhost:8000"}})
 # File Upload Folder
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -37,16 +31,16 @@ def prompt_formatter(query: str, context_items: list[dict]) -> str:
     """
     # Kontext in einen einzigen Absatz umwandeln
     context = "- " + "\n- ".join([item["sentence_chunk"] for item in context_items])
-    
+        
     # Basis-Prompt für das Modell erstellen
     base_prompt = """
-    Beantworte bitte die Frage anhand der folgenden Kontextinformationen. 
-    Lass dir Zeit zum Nachdenken, indem du die relevanten Passagen aus dem Kontext nimmst, bevor du die Frage beantwortest. 
-    Wiederhole nicht die Gedanken, sondern nur die Antwort. Achte darauf, dass deine Antwort so weit wie möglich die Frage erklärt, jedoch acuh seht kurz bitte. Fasse dich kurtz und in maximal 3 Sätzen!
-    Verwende nun die folgenden Kontextinformationen, um die Benutzeranfrage zu beantworten:
+    Bitte beantworte die folgende Frage basierend auf den bereitgestellten Kontextinformationen.
+    Lies die relevanten Passagen sorgfältig, um die Frage präzise zu beantworten.
+    Gib nur die Antwort, ohne die Gedanken zu wiederholen. Achte darauf, die Antwort möglichst klar und in maximal 30 Wörtern oder kürzer zu formulieren.
+    Nutze die folgenden Kontextinformationen zur Beantwortung der Benutzerfrage:
     {context}
-    Relevant Kontextelemente: <extract relevant passages from the context here>
-    User query: {query}
+    Wichtige Kontextelemente: <extrahiere relevante Passagen aus dem Kontext hier>
+    Benutzeranfrage: {query}
     """
 
     # Prompt mit Kontext und Anfrage aktualisieren
@@ -65,7 +59,6 @@ def prompt_formatter(query: str, context_items: list[dict]) -> str:
 # Clear GPU cache if CUDA is available
 if torch.cuda.is_available():
     torch.cuda.empty_cache()
-
 
 
 @app.route('/upload', methods=['POST'])
@@ -88,10 +81,35 @@ def upload_pdf():
 
     try:
         # Schritt 1: PDF verarbeiten und Einbettungen erstellen
-        feedback["embedding_start"] = "Start processing PDF and generating embeddings."
-        csv_path, pages_and_chunks = process_pdf_and_generate_embeddings(pdf_path=file_path, chunk_size=10, min_token_length=30)
-        feedback["embedding_done"] = f"Embeddings generated and saved to {csv_path}"
-
+        print("PDF embedding - Step 1: Loading PDF and preparing sentence chunks...")
+        feedback["embedding_start"] = "Start loading PDF and preparing sentence chunks."
+        pages_and_texts = open_and_read_pdf(pdf_path=file_path)
+        print("S2")
+        feedback["embedding_S1.1.1"] = "Start sentencize text."
+        pages_and_texts = sentencize_text(pages_and_texts)
+        print("S2")
+        feedback["embedding_S1.1.2"] = "Start sentencize text."
+        pages_and_chunks = prepare_chunks(pages_and_texts, chunk_size=10)
+        print("S2")
+        if os.path.exists(check_and_embed_pdf(file_path)):
+            print(f"Embeddings für {check_and_embed_pdf(file_path)} existieren bereits, Verwendung der bestehenden Datei.")
+            csv_path = check_and_embed_pdf(file_path)
+        else:                               
+            print("Step 2: Filtering sentence chunks by token count...")
+            feedback["embedding_S1.2"] = "Start filtering sentence chunks by token count"
+            filtered_chunks = token_filter(pages_and_chunks, min_token_length=30)
+    
+            print("Step 3: Generating embeddings for filtered chunks...")
+            feedback["embedding_S1.3"] = "Step 3: Generating embeddings for filtered chunks..."
+            embeddings_tensor = embed_text(filtered_chunks)
+    
+            print("Step 4: Saving embeddings to CSV...")
+            feedback["embedding_S1.4"] = "Step 4: Saving embeddings to CSV..."
+            csv_path = embed_text_save(filtered_chunks, file_path)  # PDF-Pfad an die Funktion übergeben
+            print(f"Embeddings saved to {csv_path}")
+            print("Process complete.")
+        
+        print("S3")
         # Schritt 2: Einbettungen laden
         feedback["embedding_loading"] = "Loading embeddings from CSV."
         embeddings = embeddings_to_tensor(csv_path, device)
@@ -127,4 +145,5 @@ def upload_pdf():
         return jsonify(feedback), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)
+

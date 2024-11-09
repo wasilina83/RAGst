@@ -270,39 +270,26 @@ def embed_text_save(pages_and_chunks: list[dict], pdf_name: str, embeddings_dir:
     return save_path
 
 
-
+# Funktion zur Überprüfung und Speicherung der Embeddings
+def check_and_embed_pdf(file_path: str) -> str:
+    """
+    Überprüft, ob Embeddings bereits existieren, und erstellt sie bei Bedarf.
+    
+    Parameter:
+        file_path (str): Der Pfad der hochgeladenen PDF-Datei.
+        pages_and_chunks (list[dict]): Liste der Textschnipsel und deren Seiteninformationen.
+        
+    Returns:
+        str: Der Pfad zur Embedding-Datei.
+    """
+    embeddings_dir = "./docs/embeddings"
+    pdf_base_name = os.path.splitext(os.path.basename(file_path))[0]
+    save_path = os.path.join(embeddings_dir, f"{pdf_base_name}_embeddings.csv")
+    return save_path
 
 
 # Mainfunktion zum Prozessieren der PDF und Generierung der Embeddings
-def process_pdf_and_generate_embeddings(pdf_path: str, chunk_size: int = 10, min_token_length: int = 30) :
-    """
-    Komplettes Verfahren zum Laden einer PDF, Verarbeiten des Textes, Erstellen von Embeddings für jeden Abschnitt,
-    und Laden dieser Embeddings als Tensor.
 
-    Parameter:
-        pdf_path (str): Der Pfad zur PDF.
-        chunk_size (int): Anzahl der Sätze pro Abschnitt.
-        min_token_length (int): Minimale Token-Länge, um Abschnitte zu filtern.
-
-    Rückgabe:
-        torch.Tensor: Ein Tensor der Embeddings, bereit für nachfolgende Aufgaben.
-    """
-    print("Step 1: Loading PDF and preparing sentence chunks...")
-    pages_and_texts = open_and_read_pdf(pdf_path)
-    pages_and_texts = sentencize_text(pages_and_texts)
-    pages_and_chunks = prepare_chunks(pages_and_texts, chunk_size)
-
-    print("Step 2: Filtering sentence chunks by token count...")
-    filtered_chunks = token_filter(pages_and_chunks, min_token_length)
-
-    print("Step 3: Generating embeddings for filtered chunks...")
-    embeddings_tensor = embed_text(filtered_chunks)
-
-    print("Step 4: Saving embeddings to CSV...")
-    csv_path = embed_text_save(filtered_chunks, pdf_path)  # PDF-Pfad an die Funktion übergeben
-    print(f"Embeddings saved to {csv_path}")
-    print("Process complete.")
-    return csv_path, pages_and_chunks
 
 
 
