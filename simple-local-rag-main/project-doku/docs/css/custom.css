@@ -78,3 +78,33 @@ a {
 	height: 2.0rem;
 	width: auto;
 }
+/* Style for the upload button */
+button {
+    background-color: #1E0096; /* Deep blue background */
+    border: none; /* Remove default border */
+    font-family: inherit; /* Keep font consistent with other text */
+    font-size: 0.81rem; /* Adjust size to make it more visible */
+    color: white; /* White text color for contrast */
+    padding: 8px 16px; /* Add padding for a larger button */
+    border-radius: 6px; /* Rounded corners */
+    cursor: pointer; /* Pointer cursor on hover */
+    transition: background-color 0.3s ease, transform 0.2s ease; /* Smooth color and scale transitions */
+}
+
+/* Hover effect for the button */
+button:hover {
+    background-color: #000dbd; /* Darker shade of blue on hover */
+    transform: scale(1.05); /* Slightly larger on hover */
+}
+
+/* Active/pressed effect */
+button:active {
+    transform: scale(0.98); /* Slightly smaller when pressed */
+    background-color: #0009a3; /* Even darker shade on active state */
+}
+
+/* Optional: focus effect for accessibility */
+button:focus {
+    outline: 2px solid #0212ff; /* Blue outline for focus */
+    outline-offset: 2px;
+}
