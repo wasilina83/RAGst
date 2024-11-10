@@ -4,7 +4,7 @@ import os
 import torch
 from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from scripts.rag_pipeline_20 import *
+from scripts.rag_pipeline_10 import *
 from scripts.rag_body_102 import *
 
 
