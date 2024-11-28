@@ -177,6 +177,7 @@ def upload_pdf():
         inputs = tokenizer(prompt, return_tensors="pt").to(device)
         outputs = model.generate(inputs["input_ids"], max_length=900)
         answer = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        print(answer)
         
         feedback["llm_answer"] = answer
         return jsonify({"feedback": feedback, "answer": answer})

@@ -4,7 +4,7 @@ import os
 import torch
 from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from scripts.rag_pipeline_10 import *
+from scripts.rag_pipeline_20 import *
 from scripts.rag_body_102 import *
 
 
@@ -63,7 +63,8 @@ if torch.cuda.is_available():
 
 @app.route('/upload', methods=['POST'])
 def upload_pdf():
-    feedback = {}  # Initialisiere ein Dictionary, um Rückmeldungen zu sammeln
+    feedback = {}
+    feBenutzeredback = {}  # Initialisiere ein Dictionary, um Rückmeldungen zu sammeln
 
     if 'file' not in request.files:
         feedback["error"] = "No file provided"
@@ -127,23 +128,42 @@ def upload_pdf():
 
         # Schritt 5: Antwort mit LLM erstellen
         feedback["llm_prompt"] = "Generating answer using LLM based on context."
-        context_items = [pages_and_chunks[idx] for idx in top_results_dot_product[1]]
+        context_items = [pages_and_chunks[idx] for idx in top_results_dot_product[1][:3]]
         prompt = prompt_formatter(query, context_items)
         
         # Tokenize und generiere Antwort
         tokenizer = AutoTokenizer.from_pretrained(model_id)
         inputs = tokenizer(prompt, return_tensors="pt").to(device)
-        outputs = model.generate(inputs["input_ids"], max_length=600)
-        answer = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        lenge= len(inputs["input_ids"][0])
+        # Maximale Eingabelänge basierend auf Modellgrenze berechnen
+        max_input_length = model.config.max_position_embeddings - 7000  # Puffer für Antwort
+        print(f"\n\n  len(inputs input_ids 0 ) {lenge}\n\n")
+        print(f"\n\n  max_input_length {max_input_length}\n\n")
+        if len(inputs["input_ids"][0]) > max_input_length:
+            # Kontext kürzen, bis die Länge passt
+            while len(inputs["input_ids"][0]) > max_input_length:
+                print(f"context_items1 {context_items}")
+                context_items.pop(-1)  # Entferne das am wenigsten relevante Element
+                print(f"context_items2 {context_items}")
+            prompt = prompt_formatter(query, context_items)
+            
+            inputs = tokenizer(prompt, return_tensors="pt").to(device)
+
+        outputs = model.generate(inputs["input_ids"], max_length=1200)
         
-        feedback["llm_answer"] = "Answer generated successfully."
+        answer = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        feedback["llm_answer"] = "Answer generated successfully"
+
+        
 
         # Rückgabe der Antwort und des Seitenzahl-Ergebnisses
-        return jsonify({"feedback": feedback, "answer": answer, "page_number": page_number})
+        
+        rtrn=jsonify({"feedback": feedback, "answer": answer, "page_number": page_number})
+        print(rtrn)
+        return jsonify({"answer": answer})
     except Exception as e:
         feedback["error"] = f"An error occurred: {str(e)}"
         return jsonify(feedback), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
-
