@@ -6,6 +6,7 @@ from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from scripts.rag_pipeline_20 import *
 from scripts.rag_body_102 import *
+import json
 
 
 # Flask App Setup
@@ -160,7 +161,21 @@ def upload_pdf():
         
         rtrn=jsonify({"feedback": feedback, "answer": answer, "page_number": page_number})
         print(rtrn)
+
+        # Save rtrn to a file
+        output_file_path = os.path.join(app.config['UPLOAD_FOLDER'], "response_output.json")
+        with open(output_file_path, "r") as output_file:
+            existing_data = json.load(output_file)
+            new_response = {"feedback": feedback, "answer": answer, "page_number": page_number}
+            existing_data[query] = new_response
+        with open(output_file_path, "w") as output_file:
+            json.dump(existing_data, output_file, indent=4)
+
+        print(f"Response saved to {output_file_path}")
+        
         return jsonify({"answer": answer})
+
+    
     except Exception as e:
         feedback["error"] = f"An error occurred: {str(e)}"
         return jsonify(feedback), 500
