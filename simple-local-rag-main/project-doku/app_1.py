@@ -135,17 +135,24 @@ def upload_pdf():
         # Tokenize und generiere Antwort
         tokenizer = AutoTokenizer.from_pretrained(model_id)
         inputs = tokenizer(prompt, return_tensors="pt").to(device)
-        lenge= len(inputs["input_ids"][0])
+        lenge = len(inputs["input_ids"][0])
         # Maximale Eingabelänge basierend auf Modellgrenze berechnen
-        max_input_length = model.config.max_position_embeddings - 7000  # Puffer für Antwort
-        print(f"\n\n  len(inputs input_ids 0 ) {lenge}\n\n")
-        print(f"\n\n  max_input_length {max_input_length}\n\n")
+        max_input_length = model.config.max_position_embeddings - 2000  # Puffer für Antwort
+        
         if len(inputs["input_ids"][0]) > max_input_length:
             # Kontext kürzen, bis die Länge passt
-            while len(inputs["input_ids"][0]) > max_input_length:
-                print(f"context_items1 {context_items}")
+            while lenge > max_input_length:
+                
+                print(f"\n\n\n\n len inputs input_ids {len(inputs["input_ids"][0])} max_input_length \n\n\n\n")
                 context_items.pop(-1)  # Entferne das am wenigsten relevante Element
                 print(f"context_items2 {context_items}")
+                prompt = prompt_formatter(query, context_items)
+                
+                # Tokenize und generiere Antwort
+                tokenizer = AutoTokenizer.from_pretrained(model_id)
+                inputs = tokenizer(prompt, return_tensors="pt").to(device)
+                        
+                lenge = len(inputs["input_ids"][0])
             prompt = prompt_formatter(query, context_items)
             
             inputs = tokenizer(prompt, return_tensors="pt").to(device)
@@ -163,7 +170,7 @@ def upload_pdf():
         print(rtrn)
 
         # Save rtrn to a file
-        output_file_path = os.path.join(app.config['UPLOAD_FOLDER'], "response_output.json")
+        output_file_path = os.path.join(app.config['UPLOAD_FOLDER'], "response_output-a1.json")
         with open(output_file_path, "r") as output_file:
             existing_data = json.load(output_file)
             new_response = {"feedback": feedback, "answer": answer, "page_number": page_number}

@@ -7,7 +7,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from scripts.rag_pipeline_20 import *
 from scripts.rag_body_102 import *
 import re
-
+import json
 
 # Flask App Setup
 app = Flask(__name__)
@@ -28,7 +28,7 @@ def remove_until_patterns_in_place(my_list, patterns):
     if patterns in my_list:
         index = my_list.index(patterns)
         # Delete all items before the codeword
-        index = index+2
+        index = index+1
         del my_list[:index]
     else:
         print(f"Codeword '{patterns}' not found in the list.")
@@ -42,14 +42,8 @@ def generate_subqueries(query: str) -> list:
     """
     prompt = f"""
 Erstelle eine Liste spezifischer Stichpunkte oder Subqueries, die helfen, die Frage präziser zu beantworten.
-Verwende nur kurze Stichworte oder Phrasen (1 bis 3 Wörter pro Eintrag).
-Vermeide längere Erklärungen; die Liste soll eine kompakte Auswahl von 5 Schlüsselbegriffen sein, die in einer Datenbank zur Suche verwendet werden könnten. Ergänze auch ähnliche Begriffe, die thematisch passen.
-
-Formatiere die Liste wie folgt:
-
-1. Stichpunkt/Subquery 1
-2. Stichpunkt/Subquery 2
-3. Stichpunkt/Subquery 3
+Vermeide längere Erklärungen; die Liste soll eine kompakte Auswahl von 5 umformulierten Fragen sein. Ergänze auch ähnliche Begriffe, die thematisch passen. Formuliere immer die 5 Sätze kurz.
+Wischtig: Fange die liste immer mit der fettgeschriebenen Übeschrifft "Antwort:" an.
 ...
 Die Frage lautet: '{query}'
 """
@@ -58,11 +52,11 @@ Die Frage lautet: '{query}'
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
     outputs = model.generate(inputs["input_ids"], max_length=200)
     response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    
+    print(response)
     # Extrahiere die Subqueries aus der Antwort und filtere sie
     subqueries = response.strip().split("\n")
     
-    patterns ="Die Frage lautet: 'Was ist Geisbeinflussung?'"
+    patterns ="**Antwort:**"
     remove_until_patterns_in_place(subqueries, patterns)
     
     subqueries = [subquery.strip() for subquery in subqueries if subquery]  # Filtere leere Einträge
@@ -91,7 +85,7 @@ def prompt_formatter(query: str, context_items: list[dict]) -> str:
     base_prompt = f"""
     Bitte beantworte die folgende Frage basierend auf den bereitgestellten Kontextinformationen.
     Lies die relevanten Passagen sorgfältig, um die Frage präzise zu beantworten.
-    Gib nur die Antwort, ohne die Gedanken zu wiederholen. Achte darauf, die Antwort möglichst klar und in maximal 30 Wörtern oder kürzer zu formulieren!
+    Gib nur die Antwort, ohne die Gedanken zu wiederholen. Achte darauf, die Antwort möglichst klar kürzer zu formulieren!  
     Nutze die folgenden Kontextinformationen zur Beantwortung der Benutzerfrage:
     {context}
     Benutzeranfrage: {query}
@@ -120,8 +114,9 @@ def upload_pdf():
         
         # Multi-Query-Retriever: Generiere Subqueries
         response = generate_subqueries(query)
-        print((f"response type: {type(response)}"))
+        print((f"response type: {type(response)} {response}"))
         subqueries = extract_subqueries(response)
+        subqueries=[query.replace('**', '') for query in subqueries]
         feedback["subqueries"] = subqueries
         print(f"subqueries: {subqueries}")
 
@@ -140,7 +135,8 @@ def upload_pdf():
         
         # Für jede Subquery Kontext extrahieren und die besten Ergebnisse finden
         all_retrieval_results = []
-        
+        retrieval_with_scores = []
+        added_indices = set()
         # Für jede Subquery Kontext extrahieren und die besten Ergebnisse finden
         for subquery in subqueries:
             # Finde die besten Übereinstimmungen für die aktuelle Subquery
@@ -149,37 +145,76 @@ def upload_pdf():
             # Extrahiere Werte und Indizes aus den `topk`-Ergebnissen
             top_values = top_results.values
             top_indices = top_results.indices
-        
+            
             print(f"\nErgebnisse für Subquery '{subquery}':")
             for value, index in zip(top_values, top_indices):
                 # Überprüfe, ob der Wert über dem Schwellenwert liegt
-                if value.item() > 0.4:
-                    print(f"Wert: {value.item():.4f}, Index: {index.item()}")  # Ausgabe der Ergebnisse
+                if value.item() > 0.29:
+                    print(f"Wert: {value.item():.2f}, Index: {index.item()}")  # Ausgabe der Ergebnisse
+                    if index.item() not in added_indices:
+                        # Füge den Index zum Set hinzu
+                        added_indices.add(index.item())
         
-                    # Füge nur eindeutige Elemente hinzu, um doppelte Ergebnisse zu vermeiden
-                    if pages_and_chunks[index.item()] not in all_retrieval_results:
-                        print(f"\n {pages_and_chunks[index.item()]} \n {pages_and_chunks[index.item()]['chunk_token_count']/pages_and_chunks[index.item()]['chunk_word_count']}\n")
-                        if pages_and_chunks[index.item()]['chunk_token_count']/pages_and_chunks[index.item()]['chunk_word_count'] < 3:
-                            all_retrieval_results.append(pages_and_chunks[index.item()])
+                        # Füge nur eindeutige Elemente hinzu, um doppelte Ergebnisse zu vermeiden
+                        retrieval_with_scores.append((value.item(), pages_and_chunks[index.item()]))
                         
         
-        print("\nKombinierte Kontexte für alle Subqueries (nur Werte über 0.4):")
+        # Sortiere die Ergebnisse nach den `value`-Werten in absteigender Reihenfolge
+        retrieval_with_scores.sort(key=lambda x: x[0], reverse=True)
+        
+        # Extrahiere die sortierten Kontexte
+        all_retrieval_results = [context for _, context in retrieval_with_scores]
+        
+        print("\nKombinierte Kontexte für alle Subqueries (sortiert nach Wert):")
         for i, context in enumerate(all_retrieval_results, 1):
             print(f"{i}. {context}")
-
-
-        print(all_retrieval_results)
-    
+        
         # Kombinierten Prompt für das LLM erstellen
         prompt = prompt_formatter(query, all_retrieval_results)
         
         # Antwort generieren
         inputs = tokenizer(prompt, return_tensors="pt").to(device)
-        outputs = model.generate(inputs["input_ids"], max_length=900)
+        lenge = len(inputs["input_ids"][0])
+        # Maximale Eingabelänge basierend auf Modellgrenze berechnen
+        max_input_length = model.config.max_position_embeddings - 7000  # Puffer für Antwort
+        
+        if len(inputs["input_ids"][0]) > max_input_length:
+            # Kontext kürzen, bis die Länge passt
+            while lenge > max_input_length:
+                lenge = len(inputs["input_ids"][0])
+                all_retrieval_results.pop(-1)  # Entferne das am wenigsten relevante Element
+                prompt = prompt_formatter(query, all_retrieval_results)
+                
+                # Tokenize und generiere Antwort
+                inputs = tokenizer(prompt, return_tensors="pt").to(device)
+                        
+                lenge = len(inputs["input_ids"][0])
+        
+        outputs = model.generate(inputs["input_ids"], max_length=1500)
         answer = tokenizer.decode(outputs[0], skip_special_tokens=True)
         print(answer)
         
         feedback["llm_answer"] = answer
+        filename = f"{file.filename}-a2.json"
+        output_file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if not os.path.exists(output_file_path):
+            with open(output_file_path , "w") as output_file:
+                json.dump({}, output_file, indent=4)  # Leeres JSON-Objekt erstellen
+            print(f"{output_file_path} wurde erstellt und mit einem leeren JSON-Objekt initialisiert.")
+        else:
+            print(f"{output_file_path} existiert bereits.")
+
+                # Save rtrn to a file
+        
+        with open(output_file_path, "r") as output_file:
+            existing_data = json.load(output_file)
+            new_response = {"feedback": feedback, "answer": answer}
+            existing_data[query] = new_response
+        with open(output_file_path, "w") as output_file:
+            json.dump(existing_data, output_file, indent=4)
+
+        print(f"Response saved to {output_file_path}")
+        
         return jsonify({"feedback": feedback, "answer": answer})
     
     except Exception as e:
