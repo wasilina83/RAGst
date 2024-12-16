@@ -7,7 +7,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from scripts.rag_pipeline_20 import *
 from scripts.rag_body_102 import *
 import json
-
+import re
 
 # Flask App Setup
 app = Flask(__name__)
@@ -138,49 +138,45 @@ def upload_pdf():
         lenge = len(inputs["input_ids"][0])
         # Maximale Eingabelänge basierend auf Modellgrenze berechnen
         max_input_length = model.config.max_position_embeddings - 2000  # Puffer für Antwort
-        
+
         if len(inputs["input_ids"][0]) > max_input_length:
             # Kontext kürzen, bis die Länge passt
             while lenge > max_input_length:
                 
-                print(f"\n\n\n\n len inputs input_ids {len(inputs["input_ids"][0])} max_input_length \n\n\n\n")
                 context_items.pop(-1)  # Entferne das am wenigsten relevante Element
-                print(f"context_items2 {context_items}")
                 prompt = prompt_formatter(query, context_items)
                 
                 # Tokenize und generiere Antwort
-                tokenizer = AutoTokenizer.from_pretrained(model_id)
                 inputs = tokenizer(prompt, return_tensors="pt").to(device)
                         
                 lenge = len(inputs["input_ids"][0])
-            prompt = prompt_formatter(query, context_items)
-            
-            inputs = tokenizer(prompt, return_tensors="pt").to(device)
-
-        outputs = model.generate(inputs["input_ids"], max_length=1200)
         
+        outputs = model.generate(inputs["input_ids"], max_length=1500)
         answer = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        feedback["llm_answer"] = "Answer generated successfully"
-
+        print(answer)
         
-
+        feedback["llm_answer"] = answer
+        filename = f"{file.filename}-a1.json"
+        output_file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         # Rückgabe der Antwort und des Seitenzahl-Ergebnisses
-        
-        rtrn=jsonify({"feedback": feedback, "answer": answer, "page_number": page_number})
-        print(rtrn)
+        if not os.path.exists(output_file_path):
+            with open(output_file_path , "w") as output_file:
+                json.dump({}, output_file, indent=4)  # Leeres JSON-Objekt erstellen
+            print(f"{output_file_path} wurde erstellt und mit einem leeren JSON-Objekt initialisiert.")
+        else:
+            print(f"{output_file_path} existiert bereits.")
 
-        # Save rtrn to a file
-        output_file_path = os.path.join(app.config['UPLOAD_FOLDER'], "response_output-a1.json")
+                # Save rtrn to a file
+        
         with open(output_file_path, "r") as output_file:
             existing_data = json.load(output_file)
-            new_response = {"feedback": feedback, "answer": answer, "page_number": page_number}
+            new_response = {"feedback": feedback, "answer": answer}
             existing_data[query] = new_response
         with open(output_file_path, "w") as output_file:
             json.dump(existing_data, output_file, indent=4)
 
         print(f"Response saved to {output_file_path}")
-        
-        return jsonify({"answer": answer})
+        return jsonify({"feedback": feedback, "answer": answer})
 
     
     except Exception as e:

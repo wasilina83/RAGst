@@ -44,13 +44,12 @@ def generate_subqueries(query: str) -> list:
 Erstelle eine Liste spezifischer Stichpunkte oder Subqueries, die helfen, die Frage präziser zu beantworten.
 Vermeide längere Erklärungen; die Liste soll eine kompakte Auswahl von 5 umformulierten Fragen sein. Ergänze auch ähnliche Begriffe, die thematisch passen. Formuliere immer die 5 Sätze kurz.
 Wischtig: Fange die liste immer mit der fettgeschriebenen Übeschrifft "Antwort:" an.
-...
 Die Frage lautet: '{query}'
 """
 
 
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
-    outputs = model.generate(inputs["input_ids"], max_length=200)
+    outputs = model.generate(inputs["input_ids"], max_length=2000)
     response = tokenizer.decode(outputs[0], skip_special_tokens=True)
     print(response)
     # Extrahiere die Subqueries aus der Antwort und filtere sie
@@ -59,21 +58,26 @@ Die Frage lautet: '{query}'
     patterns ="**Antwort:**"
     remove_until_patterns_in_place(subqueries, patterns)
     
-    subqueries = [subquery.strip() for subquery in subqueries if subquery]  # Filtere leere Einträge
+    subqueries = [subquery.strip() for subquery in subqueries if subquery]# Filtere leere Einträge
+    
     return subqueries
 
 
 
 
-def extract_subqueries(response: list) -> list:
+def extract_subqueries(response: list, mquery) -> list:
     # Reguläre Ausdrücke für Subqueries und Unterfragen
     subquery_pattern = r"(\d+)\.\s*(.*?)\s*$"
     print(f"\nsubquery_matches{response}\n")
+    print(str(mquery))
+    
     # Strukturierte Liste der Subqueries erstellen
     subqueries = []
     for query in response:
         cleaned_text = re.sub(r'^[^a-zA-ZäöüÄÖÜ]*', '', query, flags=re.MULTILINE)
         subqueries.append(cleaned_text)
+    
+    subqueries.append(mquery)
     return subqueries
 
 
@@ -115,9 +119,11 @@ def upload_pdf():
         # Multi-Query-Retriever: Generiere Subqueries
         response = generate_subqueries(query)
         print((f"response type: {type(response)} {response}"))
-        subqueries = extract_subqueries(response)
-        subqueries=[query.replace('**', '') for query in subqueries]
+        subqueries = extract_subqueries(response, query)
+        subqueries=[kquery.replace('*', '') for kquery in subqueries]
+                
         feedback["subqueries"] = subqueries
+        
         print(f"subqueries: {subqueries}")
 
         all_retrieval_results = []
@@ -164,13 +170,13 @@ def upload_pdf():
         
         # Extrahiere die sortierten Kontexte
         all_retrieval_results = [context for _, context in retrieval_with_scores]
-        
+        all_retrieval_results = all_retrieval_results[:5]
         print("\nKombinierte Kontexte für alle Subqueries (sortiert nach Wert):")
         for i, context in enumerate(all_retrieval_results, 1):
             print(f"{i}. {context}")
         
         # Kombinierten Prompt für das LLM erstellen
-        prompt = prompt_formatter(query, all_retrieval_results)
+        prompt = prompt_formatter(query, all_retrieval_results[:3])
         
         # Antwort generieren
         inputs = tokenizer(prompt, return_tensors="pt").to(device)
@@ -190,7 +196,7 @@ def upload_pdf():
                         
                 lenge = len(inputs["input_ids"][0])
         
-        outputs = model.generate(inputs["input_ids"], max_length=1500)
+        outputs = model.generate(inputs["input_ids"], max_length=2000)
         answer = tokenizer.decode(outputs[0], skip_special_tokens=True)
         print(answer)
         
